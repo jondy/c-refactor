@@ -61,53 +61,46 @@ MPUNCTUATOR	   ("+="|"-="|"&="|"^="|"|="|"##"|"<:"|":>"|"<%"|"%>"|"%:"|"->"|"++"
 <comment>"*/"             { yy_pop_state(yyscanner); }
 <comment>\n               { INCREASE_LINENO }
 <comment>.                { /* do nothing */ }
-"//"                      { yy_push_state(comment, yyscanner); }
+"//"                      { yy_push_state(linecomment, yyscanner); }
 <linecomment>\n           { INCREASE_LINENO
                             yy_pop_state(yyscanner);
 		            }
 <linecomment>.*           { /* do nothing */ }
 
 
+<preprocessing>{HEADER_NAME}       { *yylval = (YYSTYPE)strdup(yytext);
+                                     return HEADER_NAME;
+			             }
+
+<preprocessing>{PP_NUMBER}         { *yylval = (YYSTYPE)strdup(yytext);
+                                     return PP_NUMBER;
+			             }
 
 {DECIMAL_CONSTANT}{INTEGER_SUFFIX}?     { *yylval = (YYSTYPE)strdup(yytext);
-					  if (YY_START == preprocessing)
-					    return PPUNCTUATOR;
                                           return DECIMAL_CONSTANT;
                                           }
 
 {OCTAL_CONSTANT}{INTEGER_SUFFIX}?       { *yylval = (YYSTYPE)strdup(yytext);
-					  if (YY_START == preprocessing)
-					    return PPUNCTUATOR;
 					  return OCTAL_CONSTANT;
                                           }
 
 {HEXADECIMAL_CONSTANT}{INTEGER_SUFFIX}? { *yylval = (YYSTYPE)strdup(yytext);
-					  if (YY_START == preprocessing)
-					    return PPUNCTUATOR;
 					  return HEXADECIMAL_CONSTANT;
                                           }
 
 {DECIMAL_FLOATING_CONSTANT}{FLOAT_SUFFIX}?      { *yylval = (YYSTYPE)strdup(yytext);
-						  if (YY_START == preprocessing)
-						    return PPUNCTUATOR;
                                                   return DECIMAL_FLOATING_CONSTANT;
                                                   }
 
 {HEXADECIMAL_FLOATING_CONSTANT}{FLOAT_SUFFIX}?  { *yylval = (YYSTYPE)strdup(yytext);
-						  if (YY_START == preprocessing)
-						    return PPUNCTUATOR;
                                                   return HEXADECIMAL_FLOATING_CONSTANT;
                                                   }
 
 {CHARACTER_CONSTANT}     { *yylval = (YYSTYPE)strdup(yytext);
-			   if (YY_START == preprocessing)
-			     return PPUNCTUATOR;
                            return CHARACTER_CONSTANT;
 			   }
 
 {STRING_LITERAL}         { *yylval = (YYSTYPE)strdup(yytext);
-			   if (YY_START == preprocessing)
-			     return PPUNCTUATOR;
                            return STRING_LITERAL;
 			   }
 
@@ -131,19 +124,6 @@ MPUNCTUATOR	   ("+="|"-="|"&="|"^="|"|="|"##"|"<:"|":>"|"<%"|"%>"|"%:"|"->"|"++"
 				     else
 				       return PIF;
                                      }
-
-<preprocessing>{HEADER_NAME}       { *yylval = (YYSTYPE)strdup(yytext);
-			              if (YY_START == preprocessing)
-			                return PPUNCTUATOR;
-                                      return HEADER_NAME;
-			              }
-
-<preprocessing>{PP_NUMBER}         { *yylval = (YYSTYPE)strdup(yytext);
-			             if (YY_START == preprocessing)
-			               return PPUNCTUATOR;
-                                     return PP_NUMBER;
-			             }
-
 
 <predefine>{IDENTIFIER}\(?  {  yy_pop_state(yyscanner);
                                if (strchr(yytext, '(')){
@@ -217,8 +197,10 @@ MPUNCTUATOR	   ("+="|"-="|"&="|"^="|"|="|"##"|"<:"|":>"|"<%"|"%>"|"%:"|"->"|"++"
 
 			    if (YY_START == preprocessing)
 			      return PIDENTIFIER;
-			    else{
-			      /* 如果当前进入 declaration ，那么返回 TYPE_NAME */
+			    else {
+			      /* 如果在已知的类型定义中 ，那么返回 TYPE_NAME */
+                              /* 如果在已知的枚举类型中 ，那么返回 ENUMERATION_CONSTANT */
+                              /* ? yyextra == yyget_extra(yyscanner) */
 			      PCONTEXT pcontext = (PCONTEXT)yyget_extra(yyscanner);
 			      if (pcontext -> findex)
 				return TYPE_NAME;
@@ -228,12 +210,7 @@ MPUNCTUATOR	   ("+="|"-="|"&="|"^="|"|="|"##"|"<:"|":>"|"<%"|"%>"|"%:"|"->"|"++"
                             }
 
 {PUNCTUATOR}             { *yylval = (YYSTYPE)strdup(yytext);
-                           if (YY_START == preprocessing){
-			     return PPUNCTUATOR;
-			   }
-			   else{
-			     return *yytext;
-			   }
+                           return  (YY_START == preprocessing) ? PPUNCTUATOR : *yytext;
                            }
 
 {MPUNCTUATOR}            { *yylval = (YYSTYPE)strdup(yytext);
@@ -299,6 +276,8 @@ MPUNCTUATOR	   ("+="|"-="|"&="|"^="|"|="|"##"|"<:"|":>"|"<%"|"%>"|"%:"|"->"|"++"
 			     return TRIPLEDOT;
 			   }
 
+<*>\\\n                   { INCREASE_LINENO } /* ignore the slash at the end of line */
+
 <*>\n                     { INCREASE_LINENO
                             if (YY_START == preprocessing || YY_START == preifgroup){
 			      yy_pop_state(yyscanner);
@@ -314,8 +293,6 @@ MPUNCTUATOR	   ("+="|"-="|"&="|"^="|"|="|"##"|"<:"|":>"|"<%"|"%>"|"%:"|"->"|"++"
 			       yyterminate();
 			       }
 			    }
-
-<*>\\\n                   { INCREASE_LINENO } /* ignore the slash at the end of line */
 
 <*>.                      { /* ignore all the others */ }
 
@@ -333,7 +310,6 @@ int main(int argc, char * argv[])
   FILE * infile;
 
   ++argv, --argc;  /* skip over program name */
-  /*
   if (argc > 0) {
     fprintf(stderr, "Open file %s...\n", argv[0]);
     infile = fopen(argv[0], "r");
@@ -344,11 +320,10 @@ int main(int argc, char * argv[])
   }
   else
       infile = stdin;
-  */
 
-  infile = fopen("test.c", "r");
-  if (infile == NULL)
-    infile = stdin;
+  /* infile = fopen("test.c", "r"); */
+  /* if (infile == NULL) */
+  /*   infile = stdin; */
 
   fprintf(stdout, "Parsing...\n\n");
 
