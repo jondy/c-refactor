@@ -731,7 +731,14 @@ A.3 Preprocessing directives
 
     - 增加主入口规则
 
-    entry: preprocessing_file | translation_unit ;
+    entry: | preprocessing_file ;
+
+    同时修改规则 group_part 增加
+
+          | function_definition
+          | declaration
+
+    并且删除没有使用的规则 translation_unit 和 external_declaration
 
     这样就涵盖了全部语法，其中前者用于解析预处理语句，后者用于解析正常语句；
 
@@ -889,8 +896,8 @@ A.3 Preprocessing directives
 
 %% /* Grammar rules and actions follow.  */
 
-entry: preprocessing_file
-     | translation_unit
+entry: /* Empty */
+     | preprocessing_file
 ;
 
  /* A.1.1 Lexical elements */
@@ -1314,13 +1321,13 @@ jump_statement: GOTO IDENTIFIER ';'
 ;
 
 /* A.2.4 External definitions */
-translation_unit: external_declaration
-                | translation_unit external_declaration
-;
+/* translation_unit: external_declaration */
+/*                 | translation_unit external_declaration */
+/* ; */
 
-external_declaration: function_definition
-                    | declaration
-;
+/* external_declaration: function_definition */
+/*                     | declaration */
+/* ; */
 
 function_definition: declaration_specifiers declarator compound_statement
                    | declaration_specifiers declarator declaration_list compound_statement
@@ -1331,8 +1338,7 @@ declaration_list: declaration
 ;
 
 /* A.3 Preprocessing directives */
-preprocessing_file: /* Empty */
-                  | group
+preprocessing_file: group
 ;
 
 group: group_part
@@ -1341,8 +1347,10 @@ group: group_part
 
 group_part: if_section
           | control_line
-	  | text_line
+          | text_line
 	  | '#' non_directive
+          | function_definition
+          | declaration
 ;
 
 if_section: if_group endif_line
