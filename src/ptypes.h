@@ -41,9 +41,7 @@
     VARS vars [ MAX_VARS_NUMBER ];
     char stmt [ MAX_STMT_SIZE ];
     char * filename;
-  } CONTEXT;
-  typedef CONTEXT  *PCONTEXT;
-  typedef CONTEXT *YY_EXTRA_TYPE;
+  } CONTEXT, *PCONTEXT, *YY_EXTRA_TYPE;
 
   /*
   void print_file_header ( PCONTEXT );

@@ -739,7 +739,7 @@ A.3 Preprocessing directives
 
       typedef_name: TYPE_NAME
 
-shift/reduce 冲突
+已知的 shift/reduce 冲突，共 1 个：
 
     if (A)
         if (B)
@@ -747,7 +747,7 @@ shift/reduce 冲突
       else
           statement;
 
-   这个 else 到底是和第一个还是第二个 if 匹配，默认是第二个
+   这个 else 到底是和第一个还是第二个 if 匹配，默认是第二个 (innermost)
  */
 
 %code top {
@@ -770,15 +770,17 @@ shift/reduce 冲突
   extern int yylex(YYSTYPE * yylval_param, YYLTYPE * yylloc_param , yyscan_t yyscanner);
   extern int yylex_destroy(yyscan_t scanner);
   extern void yyset_in(FILE * file, yyscan_t scanner);
-  void yyerror(void *locp, void *scanner, PCONTEXT pcontext, char const *msg);
+  void yyerror(YYLTYPE *locp, yyscan_t yyscanner, PCONTEXT pcontext, char const *msg);
 }
 
 /* %glr-parser */
+%require "3.2"
 %define parse.trace
 %define api.pure full
 
 %locations
 %token-table
+%expect 1
 
 %lex-param   {yyscan_t scanner}
 %parse-param {yyscan_t scanner}
@@ -1409,9 +1411,9 @@ pp_tokens: preprocessing_token
 
 /* Called by yyparse on error.  */
 void
-yyerror(void *locp, void *scanner, PCONTEXT pcontext, char const *msg)
+yyerror(YYLTYPE *locp, yyscan_t yyscanner, PCONTEXT pcontext, char const *msg)
 {
-  fprintf(stderr, "Line %d:%s\n",((YYLTYPE*)locp)->first_line, msg);
+  fprintf(stderr, "Line %d: %s\n", locp->first_line, msg);
 }
 
 int
