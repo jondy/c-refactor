@@ -325,12 +325,8 @@ MPUNCTUATOR	   ("+="|"-="|"&="|"^="|"|="|"##"|"<:"|":>"|"<%"|"%>"|"%:"|"->"|"++"
 %%
 
 #ifdef FLEX
-    #define MAIN main
-#else
-    #define MAIN fmain
-#endif
 int
-MAIN(int argc, char * argv[])
+main(int argc, char * argv[])
 {
   yyscan_t scanner;
   YYSTYPE lvalp;
@@ -384,3 +380,5 @@ MAIN(int argc, char * argv[])
   fclose(infile);
   return 0;
 }
+#endif
+

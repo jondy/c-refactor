@@ -24,7 +24,7 @@
  *
  * 对于 N126.pdf 附录中非终止符号，将其中的中杠换成下划线，否
  * 则 bison 无法编译通过。
- * 
+ *
 
 下面的内容摘自 N1256.pdf
 ---------------------------------------------------------------
@@ -39,7 +39,7 @@ A.1.1 Lexical elements
     constant
     string-literal
     punctuator
-    
+
 (6.4) preprocessing-token:
     header-name
     identifier
@@ -47,7 +47,7 @@ A.1.1 Lexical elements
     character-constant
     string-literal
     punctuator
-    
+
 each non-white-space character that cannot be one of the above
 
 A.1.2 Keywords
@@ -727,1006 +727,675 @@ A.3 Preprocessing directives
 以上内容摘自 N1256.pdf
 
 
+对语法的修改：
+
+    - 增加主入口规则
+
+    entry: preprocessing_file | translation_unit ;
+
+    这样就涵盖了全部语法，其中前者用于解析预处理语句，后者用于解析正常语句；
+
+    - 规则 6.7.7
+
+      typedef_name: TYPE_NAME
+
+shift/reduce 冲突
+
+    if (A)
+        if (B)
+            statement;
+      else
+          statement;
+
+   这个 else 到底是和第一个还是第二个 if 匹配，默认是第二个
  */
 
 %{
   #include <stdio.h>
   #include <limits.h>
-  
+
   #define YYSTYPE char *
   typedef void * yyscan_t;
-  extern int yylex_init (yyscan_t *);
-  extern int yylex_destroy (yyscan_t);
-  extern void yyset_in  ( FILE *, yyscan_t );
-  void yyerror (void *, void *, PCONTEXT, char const *);
-
-  int OUTPUT_WIDTH = 60;
-  int INDENT_UNIT = 4;
+  typedef void * YY_EXTRA_TYPE;
+  typedef struct { int flag; } CONTEXT;
+  typedef CONTEXT * PCONTEXT;
+  extern int yylex_init(yyscan_t *);
+  extern int yylex_init_extra(YY_EXTRA_TYPE, yyscan_t *);
+  extern int yylex_destroy(yyscan_t);
+  extern void yyset_in(FILE *, yyscan_t);
+  void yyerror(void *, void *, PCONTEXT, char const *);
 %}
 
-%debug
-%token-table
-%pure-parser
+/* %glr-parser */
+%define parse.trace
+%define api.pure full
+
 %locations
+%token-table
 
 %lex-param   {void *scanner}
+%lex-param   {PCONTEXT pcontext}
 %parse-param {void *scanner}
 %parse-param {PCONTEXT pcontext}
 
-%token  ADD    '+'
-%token  MINUS  '-'
-%token  MUL    '*'
-%token  DIV    '/'
-%token  EQ     '='
-%token  GT     '>'
-%token  LT     '<'
-%token  GE     ">="
-%token  LE     "<="
-%token  NE     "<>"
+%token AUTO "auto"
+%token BREAK "break"
+%token CASE "case"
+%token CHAR "char"
+%token CONST "const"
+%token CONTINUE "continue"
+%token DEFAULT "default"
+%token DO "do"
+%token DOUBLE "double"
+%token ELSE "else"
+%token ENUM "enum"
+%token EXTERN "extern"
+%token FLOAT "float"
+%token FOR "for"
+%token GOTO "goto"
+%token IF "if"
+%token INLINE "inline"
+%token INT "int"
+%token LONG "long"
+%token REGISTER "register"
+%token RESTRICT "restrict"
+%token RETURN "return"
+%token SHORT "short"
+%token SIGNED "signed"
+%token SIZEOF "sizeof"
+%token STATIC "static"
+%token STRUCT "struct"
+%token SWITCH "switch"
+%token TYPEDEF "typedef"
+%token UNION "union"
+%token UNSIGNED "unsigned"
+%token VOID "void"
+%token VOLATILE "volatile"
+%token WHILE "while"
+%token _BOOL "_Bool"
+%token _COMPLEX "_Complex"
+%token _IMAGINARY "_Imaginary"
 
-%token  AND    "and"
-%token  OR     "or"
-%token  NOT    "not"
-%token  TRUE
-%token  FALSE
-%token  XOX
+%token DEFINE "define"
+%token ERROR "error"
+%token INCLUDE "include"
+%token LINE "line"
+%token PRAGMA "pragma"
+%token UNDEF "undef"
 
-%token  DOT          '.'
-%token  COMMA        ','
-%token  COLON        ':'
-%token  SEMICOLON    ';'
-%token  INDICATOR    '^'
+%token PIF "#if"
+%token PIFDEF  "#ifdef"
+%token PIFNDEF "#ifndef"
+%token PELIF "#elif"
+%token PELSE  "#else"
+%token PENDIF "#endif"
 
-%token  IS           ":="
+%token IDENTIFIER
+%token DECIMAL_CONSTANT
+%token OCTAL_CONSTANT
+%token HEXADECIMAL_CONSTANT
+%token DECIMAL_FLOATING_CONSTANT
+%token HEXADECIMAL_FLOATING_CONSTANT
+%token CHARACTER_CONSTANT
+%token ENUMERATION_CONSTANT
+%token STRING_LITERAL
+%token HEADER_NAME
+%token PP_NUMBER
 
-%token  LP    '('
-%token  RP    ')'
+%token LPAREN  /* a ( character not immediately preceded by white-space */
+%token PPUNCTUATOR
+%token TYPE_NAME
+%token NEW_LINE "\n"
+%token PIDENTIFIER
 
-%token  ENTRY
-%token  PROCEDURE
-%token  FUNCTION
-%token  CONST
-%token  VAR
-%token  TYPE
-%token  RECORD
-%token  ARRAY
-%token  OF
-%token  FOR
-%token  WHILE
-%token  IF
-%token  DO
-%token  TO
-%token  REPEAT
-%token  UNTIL
-%token  ELSE
-%token  THEN
+%token EQUAL_PLUS "+="
+%token EQUAL_MINUS "-="
+%token EQUAL_AMPERSAND "&="
+%token EQUAL_CARET "^="
+%token EQUAL_VERTICALBAR "|="
+%token EQUAL_ASTERISK "*="
+%token EQUAL_SLASH "/="
+%token EQUAL_PERCENT "%="
+%token EQUAL_DOUBLELESS "<<="
+%token EQUAL_DOUBLEGREATER ">>="
 
-%token  LB
-%token  RB
-
-%token  INTEGER
-%token  FLOAT
-%token  CHAR
-%token  BOOLEAN
-%token  STRING
-%token  DOUBLE
-
-%token  TOK_STRING
-%token  TOK_NAME
-%token  TOK_TYPENAME
-%token  TOK_INTEGER
-%token  TOK_NUMBER
-
-%left GT LT EQ LE NE GE
-%left OR AND
-
-%left ADD MINUS
-%left MUL DIV
-%left XOX
-
-%right NOT
-%right NEG
-
-%destructor { free ( $$ ); } name expr exprs
+%token DOUBLENUMBER "##"
+%token LESSCOLON "<:"
+%token COLONGREATER ":>"
+%token LESSPERCENT "<%"
+%token PERCENTGREATER "%>"
+%token PERCENTCOLON "%:"
+%token HYPHENGREATER "->"
+%token DOUBLEPLUS "++"
+%token DOUBLEMINUS "--"
+%token DOUBLELESS "<<"
+%token DOUBLEGREATER ">>"
+%token LESSEQUAL "<="
+%token GREATEREQUAL ">="
+%token DOUBLEEQUAL "=="
+%token EXCLAIMEQUAL "!="
+%token DOUBLEAMPERSAND "&&"
+%token DOUBLEVERTICALBAR "||"
+%token DOUBLEPERCENTCOLON "%:%:"
+%token TRIPLEDOT "..."
 
 %% /* Grammar rules and actions follow.  */
 
-algorithm:  entry funcs
-                                { /* 输出类结束语句 */
-                                  print_class_end ( pcontext );
-                                  pcontext -> indent -= INDENT_UNIT;
-                                  /* 输出文件结束语句 */
-                                  print_file_footer ( pcontext );
-                                  }
-                ;
-entry:            /* Empty */
-                | ENTRY EQ TOK_NAME
-                ;
+entry: preprocessing_file
+     | translation_unit
+;
 
-funcs:             /* Empty */
-                | decl_func
-                | decl_func SEMICOLON funcs
-                ;
+ /* A.1.1 Lexical elements */
+preprocessing_token: HEADER_NAME
+                   | PIDENTIFIER
+		   | PP_NUMBER
+		   | CHARACTER_CONSTANT
+		   | STRING_LITERAL
+		   | PPUNCTUATOR
+;
 
-decl_func:        func_header decls func_body
-                                { /*  */
-                                  print_func_end ( @$.last_line, pcontext );
-                                  pcontext -> findex ++;
-                                  pcontext -> indent -= INDENT_UNIT;
-                                  }
-                ;
+constant: integer_constant
+        | floating_constant
+        | ENUMERATION_CONSTANT
+	| CHARACTER_CONSTANT
+;
 
-func_header:           FUNCTION TOK_NAME LP paras RP COLON TOK_TYPENAME SEMICOLON
-                                { int i;
-                                  i = pcontext -> findex;
-                                  if ( i >= MAX_FUNC_NUMBER ) {
-                                    fprintf (
-                                        stderr,
-                                        "Error: The stack of Functions overflowed\n"
-                                        );
-                                    YYABORT;
-                                  }
-                                  pcontext -> funcs [ i ].name = strdup ( $2 );
-                                  pcontext -> funcs [ i ].rettype = strdup ( $7 );
+integer_constant: DECIMAL_CONSTANT
+                | OCTAL_CONSTANT
+		| HEXADECIMAL_CONSTANT
+;
 
-                                  /* 是否入口函数 */
-                                  if ( i == 0 ) {
-                                    print_class_begin ( pcontext );
-                                    pcontext -> indent += INDENT_UNIT;
-                                  }
+floating_constant: DECIMAL_FLOATING_CONSTANT
+                 | HEXADECIMAL_FLOATING_CONSTANT
+;
 
-                                  /* 打印函数头 */
-                                  print_func_begin ( @$.first_line, pcontext );
-                                  pcontext -> indent += INDENT_UNIT;
-                                  }
+/*
+punctuator: '[' | ']' | '(' | ')' | '{' | '}' | '.' | '&'
+          | '*' | '+' | '-' | '~' | '!' | '/' | '%' | '<'
+	  | '>' | '^' | '|' | '?' | ':' | ';' | '=' | ',' | '#'
+	  | "+=" | "-=" | "&=" | "^=" | "|=" | "##" | "<:"
+	  | ":>" | "<%" | "%>" | "%:" | "->" | "++" | "--"
+	  | "<<" | ">>" | "<=" | ">=" | "==" | "!=" | "&&"
+	  | "||" | "*=" | "/=" | "%="
+	  | "<<=" | ">>=" | "%:%:" | "..."
+;
+*/
 
-                | PROCEDURE TOK_NAME LP paras RP SEMICOLON
-                                { int i;
-                                  i = pcontext -> findex;
-                                  if ( i >= MAX_FUNC_NUMBER ) {
-                                    fprintf (
-                                        stderr,
-                                        "Error: The stack of Functions overflowed\n"
-                                        );
-                                    YYABORT;
-                                  }
-                                  pcontext -> funcs [ i ].name = strdup ( $2 );
-                                  pcontext -> funcs [ i ].rettype = 0;
+ /* A.2.1 Expressions */
+primary_expression: IDENTIFIER
+                  | constant
+		  | STRING_LITERAL
+		  | '(' expression ')'
+;
 
-                                  /* 是否入口函数 */
-                                  if ( i == 0 ) {
-                                    print_class_begin ( pcontext );
-                                    pcontext -> indent += INDENT_UNIT;
-                                  }
+postfix_expression: primary_expression
+                  | postfix_expression '[' expression ']'
+		  | postfix_expression '(' ')'
+		  | postfix_expression '(' argument_expression_list ')'
+		  | postfix_expression '.' IDENTIFIER
+		  | postfix_expression HYPHENGREATER IDENTIFIER
+		  | postfix_expression DOUBLEPLUS
+		  | postfix_expression DOUBLEMINUS
+		  | '(' type_name ')' '{' initializer_list '}'
+		  | '(' type_name ')' '{' initializer_list ',' '}'
+;
 
-                                  /* 打印函数头 */
-                                  print_func_begin ( @$.first_line, pcontext );
-                                  pcontext -> indent += INDENT_UNIT;
-                                  }
-                ;
+argument_expression_list: assignment_expression
+                        | argument_expression_list ',' assignment_expression
+;
 
-func_body:        LB stmts RB
-                ;
+unary_expression: postfix_expression
+                | DOUBLEPLUS unary_expression
+		| DOUBLEMINUS unary_expression
+		| unary_operator cast_expression
+		| SIZEOF unary_expression
+		| SIZEOF '(' type_name ')'
+;
 
-paras:             /* Empty */
-                |  decl_para
-                |  decl_para COMMA paras
-                ;
+unary_operator: '&'
+              | '*'
+	      | '+'
+	      | '-'
+	      | '~'
+	      | '!'
+;
 
-decl_para:         para_names COLON TOK_TYPENAME
-                            { PFUNC pfunc = pcontext -> funcs + pcontext -> findex;
-                              int i;
-                              for ( i = 0; i < MAX_PARA_NUMBER; i ++ ) {
-                                if ( pfunc -> paras [ i ].name == 0 )
-                                  break;
-                                if ( pfunc -> paras [ i ].type == 0 ) {
-                                  pfunc -> paras [ i ].varflag = 0;
-                                  pfunc -> paras [ i ].type = strdup( $3 );
-                                }
-                              }
-                             }
-                |  VAR TOK_NAME COLON TOK_TYPENAME
-                            { PFUNC pfunc = pcontext -> funcs + pcontext -> findex;
-                              int i = 0;
-                              while ( pfunc -> paras [ i ].name ) {
-                                i ++;
-                                if ( i > MAX_PARA_NUMBER ) {
-                                  fprintf (
-                                      stderr,
-                                      "Error: The stack of Parameters overflowed\n"
-                                      );
-                                  YYABORT;
-                                }
-                              }
-                              pfunc -> paras [ i ].varflag = 1;
-                              pfunc -> paras [ i ].name = strdup( $2 );
-                              pfunc -> paras [ i ].type = strdup( $4 );
-                             }
-                ;
+cast_expression: unary_expression
+               | '(' type_name ')' cast_expression
+;
 
-para_names:        TOK_NAME { PFUNC pfunc = pcontext -> funcs + pcontext -> findex;
-                              int i = 0;
-                              while ( pfunc -> paras [ i ].name ) {
-                                i ++;
-                                if ( i > MAX_PARA_NUMBER ) {
-                                  fprintf (
-                                      stderr,
-                                      "Error: The stack of Parameters overflowed\n"
-                                      );
-                                  YYABORT;
-                                }
-                              }
-                              pfunc -> paras [ i ].name = strdup( $1 );
-                             }
+multiplicative_expression: cast_expression
+                         | multiplicative_expression '*' cast_expression
+			 | multiplicative_expression '/' cast_expression
+			 | multiplicative_expression '%' cast_expression
+;
 
-                |  TOK_NAME
-                             { PFUNC pfunc = pcontext -> funcs + pcontext -> findex;
-                              int i = 0;
-                              while ( pfunc -> paras [ i ].name ) {
-                                i ++;
-                                if ( i > MAX_PARA_NUMBER ) {
-                                  fprintf (
-                                      stderr,
-                                      "Error: The stack of Parameters overflowed\n"
-                                      );
-                                  YYABORT;
-                                }
-                              }
-                              pfunc -> paras [ i ].name = strdup( $1 );
-                             }
-                   COMMA para_names
-                ;
+additive_expression: multiplicative_expression
+                   | additive_expression '+' multiplicative_expression
+		   | additive_expression '-' multiplicative_expression
+;
 
-decls:            /* Empty */
-                | CONST constants decls
-                | VAR vars decls
-                                { /* 输出变量表，然后重新初始化 */
-                                  PVAR pvar = pcontext -> vars;
-                                  int i;
-                                  for ( i = 0; i < MAX_VARS_NUMBER; i ++, pvar ++ ) {
-                                    if ( ! pvar -> name )
-                                      break;
-                                    print_indent( pcontext -> indent );
-                                    printf (
-                                      "%s = new %s ()\n",
-                                            pvar -> name,
-                                            pvar -> type
-                                            );
-                                    free ( pvar -> name );
-                                    free ( pvar -> type );
-                                    pvar -> name = 0;
-                                    pvar -> type = 0;
-                                  }
-                                }
-                | TYPE types decls
-                ;
+shift_expression: additive_expression
+                | shift_expression DOUBLELESS additive_expression
+		| shift_expression DOUBLEGREATER additive_expression
+;
 
-constants:        /* Empty */
-                | decl_const SEMICOLON constants
-                ;
+relational_expression: shift_expression
+                     | relational_expression '<' shift_expression
+		     | relational_expression '>' shift_expression
+		     | relational_expression LESSEQUAL shift_expression
+		     | relational_expression GREATEREQUAL shift_expression
+;
 
-decl_const:       TOK_NAME EQ TOK_INTEGER
-                                { /*  输出常量 */
-                                  print_indent ( pcontext -> indent );
-                                  printf (
-                                      "%s = %s\n",
-                                      $1,
-                                      $3
-                                      );
-                                }
-                | TOK_NAME COLON INTEGER EQ TOK_INTEGER
-                                { /*  输出常量 */
-                                  print_indent ( pcontext -> indent );
-                                  printf (
-                                      "%s = %s\n",
-                                      $1,
-                                      $5
-                                      );
-                                }
-                | TOK_NAME COLON STRING EQ TOK_STRING
-                                { /*  输出常量 */
-                                  print_indent ( pcontext -> indent );
-                                  printf (
-                                      "%s = %s\n",
-                                      $1,
-                                      $5
-                                      );
-                                }
-                | TOK_NAME COLON DOUBLE EQ TOK_NUMBER
-                                { /*  输出常量 */
-                                  print_indent ( pcontext -> indent );
-                                  printf (
-                                      "%s = %s\n",
-                                      $1,
-                                      $5
-                                      );
-                                }
-                | TOK_NAME COLON BOOLEAN EQ TRUE
-                                { /*  输出常量 */
-                                  print_indent ( pcontext -> indent );
-                                  printf (
-                                      "%s = True\n",
-                                      $1
-                                      );
-                                }
-                | TOK_NAME COLON BOOLEAN EQ FALSE
-                                { /*  输出常量 */
-                                  print_indent ( pcontext -> indent );
-                                  printf (
-                                      "%s = False\n",
-                                      $1
-                                      );
-                                }
-                ;
+equality_expression: relational_expression
+                   | equality_expression DOUBLEEQUAL relational_expression
+		   | equality_expression EXCLAIMEQUAL relational_expression
+;
 
-vars:             /* Empty */
-                | decl_var SEMICOLON vars
-                ;
+and_expression: equality_expression
+              | and_expression '&' equality_expression
+;
 
-decl_var:         var_names COLON TOK_TYPENAME
-                            { PVAR pvar = pcontext -> vars;
-                              int i;
-                              for ( i = 0; i < MAX_VARS_NUMBER; i ++ ) {
-                                if ( pvar -> name == 0 )
-                                  break;
-                                if ( pvar -> type == 0 )
-                                  pvar -> type = strdup( $3 );
-                                pvar ++;
-                              }
-                             }
-                ;
+exclusive_or_expression: and_expression
+                       | exclusive_or_expression '^' and_expression
+;
 
-var_names:        TOK_NAME  { PVAR pvar = pcontext -> vars;
-                              int i = 0;
-                              while ( pvar -> name ) {
-                                i ++;
-                                pvar ++;
-                                if ( i > MAX_VARS_NUMBER ) {
-                                  fprintf (
-                                      stderr,
-                                      "Error: The stack of Variables overflowed\n"
-                                      );
-                                  YYABORT;
-                                }
-                              }
-                              pvar -> name = strdup( $1 );
-                             }
-                | TOK_NAME
-                            { PVAR pvar = pcontext -> vars;
-                              int i = 0;
-                              while ( pvar -> name ) {
-                                i ++;
-                                pvar ++;
-                                if ( i > MAX_VARS_NUMBER ) {
-                                  fprintf (
-                                      stderr,
-                                      "Error: The stack of Variables overflowed\n"
-                                      );
-                                  YYABORT;
-                                }
-                              }
-                              pvar -> name = strdup( $1 );
-                             }
-                  COMMA var_names
-                ;
+inclusive_or_expression: exclusive_or_expression
+                       | inclusive_or_expression '|' exclusive_or_expression
+;
 
-types:            /* Empty */
-                | decl_type SEMICOLON types
-                ;
+logical_and_expression: inclusive_or_expression
+                      | logical_and_expression DOUBLEAMPERSAND inclusive_or_expression
+;
 
-decl_type:        TOK_NAME EQ TOK_TYPENAME
-                | TOK_NAME EQ INDICATOR TOK_TYPENAME
-                | TOK_NAME EQ RECORD OF vars RB
-                ;
+logical_or_expression: logical_and_expression
+                     | logical_or_expression DOUBLEVERTICALBAR logical_and_expression
+;
 
-stmts:            /* Empty */
-                | SEMICOLON
-                | stmt
-                | stmt SEMICOLON stmts
-                ;
+conditional_expression: logical_or_expression
+                      | logical_or_expression '?' expression ':' conditional_expression
+;
 
-stmt:             stmt_if
-                | stmt_loop
-                | stmt_assign
-                | stmt_call
-                ;
+assignment_expression: conditional_expression
+                     | unary_expression assignment_operator assignment_expression
+;
 
-stmt_call:        TOK_NAME LP { pcontext -> indent += INDENT_UNIT; }
-                  exprs RP
-                                { /*  恢复当前缩进 */
-				  pcontext -> indent -= INDENT_UNIT;
+assignment_operator: '='
+                   | EQUAL_ASTERISK
+		   | EQUAL_SLASH
+		   | EQUAL_PERCENT
+		   | EQUAL_PLUS
+		   | EQUAL_MINUS
+		   | EQUAL_DOUBLELESS
+		   | EQUAL_DOUBLEGREATER
+		   | EQUAL_AMPERSAND
+		   | EQUAL_CARET
+		   | EQUAL_VERTICALBAR
+;
 
-				  if ( strlen( $4 ) == 0 ){
-				    /* 没有实参的函数输出 */
-				    snprintf ( pcontext -> stmt,
-					       MAX_STMT_SIZE,
-					       "self.%s( )",
-					       $1
-					       );
-				  }
-				  else {
+expression: assignment_expression
+          | expression ',' assignment_expression
+;
 
-				    if ( pcontext -> indent
-				         + strlen( $1 )
-				         + strlen( $4 )
-				         + 10
-				         < OUTPUT_WIDTH
-				         ){
-				      /* 没有折行的函数调用输出 */
-				      snprintf( pcontext -> stmt,
-                                                MAX_STMT_SIZE,
-                                                "self.%s( %s )",
-                                                $1,
-                                                merge_expr( $4 )
-                                                );
+constant_expression: conditional_expression
+;
 
-				      }
-				      else {
-					/* 折行输出 */
-					snprintf( pcontext -> stmt,
-						  MAX_STMT_SIZE,
-						  "self.%s(",
-						  $1
-						  );
-					int len = strlen( pcontext -> stmt);
-					int indent = pcontext -> indent + INDENT_UNIT;
-					increase_indent( pcontext -> stmt + len,
-							 MAX_STMT_SIZE - len,
-							 "\n",
-							 indent
-							 );
-					len = strlen( pcontext -> stmt);
-				        increase_indent( pcontext -> stmt + len,
-							 MAX_STMT_SIZE - len,
-							 $4,
-							 indent
-							 );
-					len = strlen( pcontext -> stmt);
-					increase_indent( pcontext -> stmt + len,
-							 MAX_STMT_SIZE - len,
-							 "\n)",
-							 indent
-							 );
-				      }
-				  }
-                                  print_call_stmt ( @$.first_line, pcontext );
-                                }
-                ;
+/* A.2.2 Declarations */
+declaration: declaration_specifiers ';'
+           | declaration_specifiers init_declarator_list ';'
+;
 
-exprs:            /* Empty */   { $$ = strdup( "" ); }
-                | expr          { $$ = strdup( $1 ); }
-                | expr COMMA exprs
-                                { /* 以逗号分开的多个表达式 */
-                                  snprintf (
-                                      pcontext -> expr,
-                                      MAX_EXPR_SIZE,
-                                      "%s,\n%s",
-                                      $1,
-                                      $3
-                                      );
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                ;
+declaration_specifiers: storage_class_specifier
+                      | storage_class_specifier declaration_specifiers
+                      | type_specifier
+		      | type_specifier declaration_specifiers
+		      | type_qualifier
+		      | type_qualifier declaration_specifiers
+		      | function_specifier
+		      | function_specifier declaration_specifiers
+;
 
-stmt_assign:      name IS   { pcontext -> indent += strlen( $1 ) + 3; }
-                  expr
-                                { /*  */
-                                  int len = strlen( $1 ) + 3;
-                                  pcontext -> indent -= len;
-                                  if ( snprintf ( pcontext -> stmt,
-                                                  MAX_STMT_SIZE,
-                                                  "%s = ",
-                                                  $1
-                                                  )
-                                       < 0
-                                       ){
-                                    fprintf ( stderr, "Error: memory fault\n" );
-                                    YYABORT;
-                                  }
-                                  increase_indent(
-                                                  pcontext -> stmt + len,
-                                                  MAX_STMT_SIZE - len,
-                                                  $4,
-                                                  len + pcontext -> indent
-                                                  );
-                                  print_stmt ( @$.first_line, pcontext );
-                                }
-                ;
+init_declarator_list: init_declarator
+                    | init_declarator_list ',' init_declarator
+;
 
-name:             TOK_NAME                { $$ = strdup ( $1 ); }
-                | TOK_NAME INDICATOR      { $$ = strdup ( $1 ); }
-                | TOK_NAME DOT name
-                                { /*  */
-                                  snprintf (
-                                            pcontext -> stmt,
-                                            MAX_STMT_SIZE,
-                                            "%s.%s",
-                                            $1,
-                                            $3
-                                            );
-                                  $$ = strdup ( pcontext -> stmt );
-                                }
-                ;
+init_declarator: declarator
+               | declarator '=' initializer
+;
 
-compound_stmt:    stmt
-                | LB stmts RB
-                ;
+storage_class_specifier: TYPEDEF
+                       | EXTERN
+		       | STATIC
+		       | AUTO
+		       | REGISTER
+;
 
-stmt_if:          stmt_if_part compound_stmt
-                                { /* 减少一个缩进单位 */
-                                  pcontext -> indent -= INDENT_UNIT;
-                                }
-                | stmt_if_part compound_stmt ELSE
-                                { /* 规则中动作 */
-                                  print_indent ( pcontext -> indent - 1 );
-                                  printf ( "else:\n" );
-                                }
-                  compound_stmt
-                                { /* 减少一个缩进单位 */
-                                  pcontext -> indent -= INDENT_UNIT;
-                                }
-                ;
+/* 6.7.2 */
+type_specifier: VOID
+              | CHAR
+	      | SHORT
+	      | INT
+	      | LONG
+	      | FLOAT
+	      | DOUBLE
+	      | SIGNED
+	      | UNSIGNED
+	      | _BOOL
+	      | _COMPLEX
+	      | struct_or_union_specifier
+	      | enum_specifier
+              | typedef_name
+;
 
-stmt_if_part:    IF expr THEN
-                                { /*  */
-                                  if ( snprintf ( pcontext -> stmt,
-                                                  MAX_STMT_SIZE,
-                                                  "if %s:",
-                                                  $2
-                                                  ) < 0 ) {
-                                    fprintf ( stderr, "Error: memory fault\n" );
-                                    YYABORT;
-                                  }
-                                  print_control_stmt ( @$.first_line, pcontext );
+struct_or_union_specifier: struct_or_union '{' struct_declaration_list '}'
+                         | struct_or_union IDENTIFIER '{' struct_declaration_list '}'
+			 | struct_or_union IDENTIFIER
+;
 
-                                  /* 增加一个缩进单位 */
-                                  pcontext -> indent += INDENT_UNIT;
-                                }
-                ;
+struct_or_union: STRUCT
+               | UNION
+;
 
-stmt_loop:        WHILE expr DO
-                                { /* 打印语句头部，规则中动作 */
-                                  if ( snprintf ( pcontext -> stmt,
-                                                  MAX_STMT_SIZE,
-                                                  "while %s:",
-                                                  $2
-                                                  ) < 0 ) {
-                                    fprintf ( stderr, "Error: memory fault\n" );
-                                    YYABORT;
-                                  }
-                                  print_control_stmt ( @$.first_line, pcontext );
+struct_declaration_list: struct_declaration
+                       | struct_declaration_list struct_declaration
+;
 
-                                  /* 增加一个缩进单位 */
-                                  pcontext -> indent += INDENT_UNIT;
-                                }
-                  compound_stmt
-                                { /* 减少一个缩进单位 */
-                                  pcontext -> indent -= INDENT_UNIT;
-                                }
-                | REPEAT stmts
-                                { /* 打印语句头部，规则中动作 */
-                                  if ( snprintf ( pcontext -> stmt,
-                                                  MAX_STMT_SIZE,
-                                                  "while True:",
-                                                  $2
-                                                  ) < 0 ) {
-                                    fprintf ( stderr, "Error: memory fault\n" );
-                                    YYABORT;
-                                  }
-                                  print_control_stmt ( @$.first_line, pcontext );
+struct_declaration: specifier_qualifier_list struct_declarator_list ';'
+;
 
-                                  /* 增加一个缩进单位 */
-                                  pcontext -> indent += INDENT_UNIT;
-                                }
-                  UNTIL expr
-                                { /* 打印语句结束 */
-                                  if ( snprintf ( pcontext -> stmt,
-                                                  MAX_STMT_SIZE,
-                                                  "if %s: break",
-                                                  $5
-                                                  ) < 0 ) {
-                                    fprintf ( stderr, "Error: memory fault\n" );
-                                    YYABORT;
-                                  }
-                                  print_stmt ( @$.first_line, pcontext );
+specifier_qualifier_list: type_specifier
+                        | type_specifier specifier_qualifier_list
+			| type_qualifier
+			| type_qualifier specifier_qualifier_list
+;
 
-                                  /* 减少一个缩进单位 */
-                                  pcontext -> indent -= INDENT_UNIT;
-                                }
-                | FOR name IS expr TO expr DO
-                                { /* 打印语句头部，规则中动作 */
-                                  if ( snprintf ( pcontext -> stmt,
-                                                  MAX_STMT_SIZE,
-                                                  "for %s in range ( %s, %s ):",
-                                                  $2,
-                                                  $4,
-                                                  $6
-                                                  ) < 0 ) {
-                                    fprintf ( stderr, "Error: memory fault\n" );
-                                    YYABORT;
-                                  }
-                                  print_control_stmt ( @$.first_line, pcontext );
+struct_declarator_list: struct_declarator
+                      | struct_declarator_list ',' struct_declarator
+;
 
-                                  /* 增加一个缩进单位 */
-                                  pcontext -> indent += INDENT_UNIT;
-                                }
-                  compound_stmt
-                                { /* 减少一个缩进单位 */
-                                  pcontext -> indent -= INDENT_UNIT;
-                                }
-                ;
+struct_declarator: declarator
+                 | ':' constant_expression
+		 | declarator ':' constant_expression
+;
 
-expr:             TOK_STRING        { $$ = strdup ( $1 ); }
-                | TOK_NUMBER        { $$ = strdup ( $1 ); }
-                | TOK_INTEGER       { $$ = strdup ( $1 ); }
-                | TRUE              { $$ = strdup ( $1 ); }
-                | FALSE             { $$ = strdup ( $1 ); }
-                | name              { $$ = strdup ( $1 ); }
-                | expr XOX expr     { $$ = $1 == $3 ? $3 : $1; }
-                | TOK_NAME LP { pcontext -> indent += INDENT_UNIT; }
-                  exprs RP
-                                { /*  恢复当前缩进 */
-				  pcontext -> indent -= INDENT_UNIT;
+enum_specifier: ENUM '{' enumerator_list '}'
+              | ENUM IDENTIFIER '{' enumerator_list '}'
+	      | ENUM '{' enumerator_list ',' '}'
+	      | ENUM IDENTIFIER '{' enumerator_list ',' '}'
+	      | ENUM IDENTIFIER
+;
 
-				  if ( strlen( $4 ) == 0 ){
-				    /* 没有实参的函数输出 */
-				    snprintf ( pcontext -> expr,
-					       MAX_EXPR_SIZE,
-					       "%s( )",
-					       $1
-					       );
-				  }
-				  else {
+enumerator_list: enumerator
+               | enumerator_list ',' enumerator
+;
 
-				    if ( pcontext -> indent
-				         + strlen( $1 )
-				         + strlen( $4 )
-				         + 4
-				         < OUTPUT_WIDTH
-				         ){
-				      /* 没有折行的函数调用输出 */
-				      snprintf( pcontext -> expr,
-                                                MAX_EXPR_SIZE,
-                                                "%s( %s )",
-                                                $1,
-                                                merge_expr( $4 )
-                                                );
+enumerator: IDENTIFIER
+          | IDENTIFIER '=' constant_expression
+;
 
-				      }
-				      else {
-					/* 折行输出 */
-					snprintf( pcontext -> expr,
-						  MAX_EXPR_SIZE,
-						  "%s(",
-						  $1
-						  );
-					int len = strlen( pcontext -> expr);
-					int indent = INDENT_UNIT;
-					increase_indent( pcontext -> expr + len,
-							 MAX_EXPR_SIZE - len,
-							 "\n",
-							 indent
-							 );
-					len = strlen( pcontext -> expr);
-				        increase_indent( pcontext -> expr + len,
-							 MAX_EXPR_SIZE - len,
-							 $4,
-							 indent
-							 );
-					len = strlen( pcontext -> expr);
-					increase_indent( pcontext -> expr + len,
-							 MAX_EXPR_SIZE - len,
-							 "\n)",
-							 indent
-							 );
-				      }
-				  }
-				  $$ = strdup ( pcontext -> expr );
-                                }
-                | LP { pcontext -> indent += 2; }
-                  expr
-                  RP
-                                { /*  */
-                                  pcontext -> indent -= 2;
-                                  snprintf( pcontext -> expr,
-					    MAX_EXPR_SIZE,
-					    "( "
-					    );
-                                  increase_indent(
-						  pcontext -> expr + 2,
-                                                  MAX_EXPR_SIZE - 2,
-                                                  $3,
-                                                  2
-                                                  );
-                                  strncat( pcontext -> expr,
-					   " )",
-					   MAX_EXPR_SIZE
-					   - strlen( pcontext -> expr )
-					   - 4
-					  );
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                | expr ADD { pcontext -> indent += 2; }
-                  expr
-                                { /*  */
-                                  int len = strlen( $1 );
-                                  pcontext -> indent -= 2;
-                                  /* 判断下一个运算符是否同级 */
-                                  if ( ( yychar == ADD )
-                                       || ( yychar == MINUS )
-                                       ){
-                                       /* 需要换行处理 */
-                                    snprintf( pcontext -> expr,
-                                              MAX_EXPR_SIZE,
-                                              "%s\n+ ",
-                                              $1
-                                              );
-                                    increase_indent(
-                                                    pcontext -> expr + len + 3,
-                                                    MAX_EXPR_SIZE - len - 3,
-                                                    $4,
-                                                    2
-                                                    );
-                                  }
-                                  else if ( pcontext -> indent
-                                            + len
-                                            + 3
-                                            + strlen( $4 )
-                                            < OUTPUT_WIDTH
-                                            ){
-                                    /* 不同级运算符，无需换行 */
-                                    snprintf(
-                                             pcontext -> expr,
-                                             MAX_EXPR_SIZE,
-                                             "%s + %s",
-                                             merge_expr( $1 ),
-                                             merge_expr( $4 )
-                                             );
-                                  }
-                                  else {
-                                    /* 需要换行处理 */
-                                    snprintf( pcontext -> expr,
-                                              MAX_EXPR_SIZE,
-                                              "%s\n+ ",
-                                              $1
-                                              );
-                                    increase_indent(
-                                                    pcontext -> expr + len + 3,
-                                                    MAX_EXPR_SIZE - len - 3,
-                                                    $4,
-                                                    2
-                                                    );
-                                  }
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                | expr MINUS expr
-                                { /*  */
-                                  snprintf (
-                                            pcontext -> expr,
-                                            MAX_EXPR_SIZE,
-                                            "%s - %s",
-                                            $1,
-                                            $3
-                                            );
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                | expr MUL { pcontext -> indent += 2; }
-                  expr
-                                { /*  */
-                                  int len = strlen( $1 );
-                                  pcontext -> indent -= 2;
-                                  /* 判断下一个运算符是否同级 */
-                                  if ( ( yychar == MUL )
-                                       || ( yychar == DIV )
-                                       ){
-                                       /* 需要换行处理 */
-                                    snprintf( pcontext -> expr,
-                                              MAX_EXPR_SIZE,
-                                              "%s\n* ",
-                                              $1
-                                              );
-                                    increase_indent(
-                                                    pcontext -> expr + len + 3,
-                                                    MAX_EXPR_SIZE - len - 3,
-                                                    $4,
-                                                    2
-                                                    );
-                                  }
-                                  else if ( pcontext -> indent
-                                            + len
-                                            + 3
-                                            + strlen( $4 )
-                                            < OUTPUT_WIDTH
-                                            ){
-                                    /* 不同级运算符，无需换行 */
-                                    snprintf(
-                                             pcontext -> expr,
-                                             MAX_EXPR_SIZE,
-                                             "%s * %s",
-                                             merge_expr( $1 ),
-                                             merge_expr( $4 )
-                                             );
-                                  }
-                                  else {
-                                    /* 需要换行处理 */
-                                    snprintf( pcontext -> expr,
-                                              MAX_EXPR_SIZE,
-                                              "%s\n* ",
-                                              $1
-                                              );
-                                    increase_indent(
-                                                    pcontext -> expr + len + 3,
-                                                    MAX_EXPR_SIZE - len - 3,
-                                                    $4,
-                                                    2
-                                                    );
-                                  }
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                | expr DIV expr
-                                { /*  */
-                                  snprintf (
-                                            pcontext -> expr,
-                                            MAX_EXPR_SIZE,
-                                            "%s / %s",
-                                            $1,
-                                            $3
-                                            );
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                | MINUS expr %prec NEG
-                                { /*  */
-                                  snprintf (
-                                            pcontext -> expr,
-                                            MAX_EXPR_SIZE,
-                                            " -%s ",
-                                            $2
-                                            );
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                | expr AND { pcontext -> indent += 4; }
-                  expr
-                                { /*  */
-                                  int len = strlen( $1 );
-                                  pcontext -> indent -= 4;
-                                  /* 判断下一个运算符是否同级 */
-                                  if ( ( yychar == AND )
-                                       || ( yychar == OR )
-                                       ){
-                                       /* 需要换行处理 */
-                                    snprintf( pcontext -> expr,
-                                              MAX_EXPR_SIZE,
-                                              "%s\nand ",
-                                              $1
-                                              );
-				    len = strlen( pcontext -> expr );
-                                    increase_indent(
-                                                    pcontext -> expr + len,
-                                                    MAX_EXPR_SIZE - len,
-                                                    $4,
-                                                    4
-                                                    );
-                                  }
-                                  else if ( pcontext -> indent
-                                            + len
-                                            + 5
-                                            + strlen( $4 )
-                                            < OUTPUT_WIDTH
-                                            ){
-                                    /* 不同级运算符，无需换行 */
-                                    snprintf(
-                                             pcontext -> expr,
-                                             MAX_EXPR_SIZE,
-                                             "%s and %s",
-                                             merge_expr( $1 ),
-                                             merge_expr( $4 )
-                                             );
-                                  }
-                                  else {
-                                    /* 需要换行处理 */
-                                    snprintf( pcontext -> expr,
-                                              MAX_EXPR_SIZE,
-                                              "%s\nand ",
-                                              $1
-                                              );
-				    len = strlen( pcontext -> expr );
-                                    increase_indent(
-                                                    pcontext -> expr + len,
-                                                    MAX_EXPR_SIZE - len,
-                                                    $4,
-                                                    4
-                                                    );
-                                  }
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                | expr OR expr
-                                { /*  */
-                                  snprintf (
-                                            pcontext -> expr,
-                                            MAX_EXPR_SIZE,
-                                            "%s or %s",
-                                            $1,
-                                            $3
-                                            );
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                | NOT expr
-                                { /*  */
-                                  snprintf (
-                                            pcontext -> expr,
-                                            MAX_EXPR_SIZE,
-                                            " not %s",
-                                            $2
-                                            );
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                | expr EQ expr
-                                { /*  */
-                                  snprintf (
-                                            pcontext -> expr,
-                                            MAX_EXPR_SIZE,
-                                            "%s = %s",
-                                            $1,
-                                            $3
-                                            );
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                | expr NE expr
-                                { /*  */
-                                  snprintf (
-                                            pcontext -> expr,
-                                            MAX_EXPR_SIZE,
-                                            "%s + %s",
-                                            $1,
-                                            $3
-                                            );
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                | expr GT expr
-                                { /*  */
-                                  snprintf (
-                                            pcontext -> expr,
-                                            MAX_EXPR_SIZE,
-                                            "%s > %s",
-                                            $1,
-                                            $3
-                                            );
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                | expr LT expr
-                                { /*  */
-                                  snprintf (
-                                            pcontext -> expr,
-                                            MAX_EXPR_SIZE,
-                                            "%s < %s",
-                                            $1,
-                                            $3
-                                            );
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                | expr GE expr
-                                { /*  */
-                                  snprintf (
-                                            pcontext -> expr,
-                                            MAX_EXPR_SIZE,
-                                            "%s >= %s",
-                                            $1,
-                                            $3
-                                            );
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                | expr LE expr
-                                { /*  */
-                                  snprintf (
-                                            pcontext -> expr,
-                                            MAX_EXPR_SIZE,
-                                            "%s <= %s",
-                                            $1,
-                                            $3
-                                            );
-                                  $$ = strdup ( pcontext -> expr );
-                                }
-                ;
+type_qualifier: CONST
+              | RESTRICT
+	      | VOLATILE
+;
+
+function_specifier: INLINE
+;
+
+declarator: direct_declarator
+          | pointer direct_declarator
+;
+
+/* 6.7.5 */
+direct_declarator: IDENTIFIER
+                 | '(' declarator ')'
+		 | direct_declarator '[' ']'
+		 | direct_declarator '[' assignment_expression ']'
+		 | direct_declarator '[' type_qualifier_list ']'
+		 | direct_declarator '[' type_qualifier_list assignment_expression ']'
+		 | direct_declarator '[' STATIC assignment_expression ']'
+		 | direct_declarator '[' STATIC type_qualifier_list assignment_expression ']'
+		 | direct_declarator '[' type_qualifier_list STATIC assignment_expression ']'
+		 | direct_declarator '[' '*' ']'
+		 | direct_declarator '[' type_qualifier_list '*' ']'
+		 | direct_declarator '(' parameter_type_list ')'
+		 | direct_declarator '(' ')'
+ 		 | direct_declarator '(' identifier_list ')'
+;
+
+pointer: '*'
+       | '*' type_qualifier_list
+       | '*' pointer
+       | '*' type_qualifier_list pointer
+;
+
+type_qualifier_list: type_qualifier
+                   | type_qualifier_list type_qualifier
+;
+
+parameter_type_list: parameter_list
+                   | parameter_list ',' TRIPLEDOT
+;
+
+parameter_list: parameter_declaration
+              | parameter_list ',' parameter_declaration
+;
+
+parameter_declaration: declaration_specifiers declarator
+                     | declaration_specifiers
+		     | declaration_specifiers abstract_declarator
+;
+
+identifier_list: IDENTIFIER
+               | identifier_list ',' IDENTIFIER
+;
+
+type_name: specifier_qualifier_list
+         | specifier_qualifier_list abstract_declarator
+;
+
+abstract_declarator: pointer
+                   | direct_abstract_declarator
+		   | pointer direct_abstract_declarator
+;
+
+/* 6.7.6 */
+direct_abstract_declarator: '(' abstract_declarator ')'
+                          | '[' ']'
+			  | '[' assignment_expression ']'
+			  | '[' type_qualifier_list ']'
+			  | '[' type_qualifier_list assignment_expression ']'
+			  | direct_abstract_declarator '[' ']'
+			  | direct_abstract_declarator '[' assignment_expression ']'
+			  | direct_abstract_declarator '[' type_qualifier_list']'
+			  | direct_abstract_declarator '[' type_qualifier_list assignment_expression ']'
+			  | '[' STATIC assignment_expression ']'
+			  | '[' STATIC type_qualifier_list assignment_expression ']'
+			  | direct_abstract_declarator '[' STATIC assignment_expression ']'
+			  | direct_abstract_declarator '[' STATIC type_qualifier_list assignment_expression ']'
+			  | '[' type_qualifier_list STATIC assignment_expression ']'
+			  | direct_abstract_declarator '[' type_qualifier_list STATIC assignment_expression ']'
+			  | '[' '*' ']'
+			  | direct_abstract_declarator '[' '*' ']'
+			  | '(' ')'
+			  | '(' parameter_type_list ')'
+			  | direct_abstract_declarator '(' ')'
+			  | direct_abstract_declarator '(' parameter_type_list ')'
+;
+
+initializer: assignment_expression
+           | '{' initializer_list '}'
+	   | '{' initializer_list ',' '}'
+;
+
+initializer_list: initializer
+                | designation initializer
+		| initializer_list ',' initializer
+		| initializer_list ',' designation initializer
+;
+
+designation: designator_list '='
+;
+
+designator_list: designator
+               | designator_list designator
+;
+
+designator: '[' constant_expression ']'
+          | '.' IDENTIFIER
+;
+
+/* 6.7.7 */
+typedef_name: TYPE_NAME;
+
+/* A.2.3 Statements */
+statement: labeled_statement
+         | compound_statement
+	 | expression_statement
+	 | selection_statement
+	 | iteration_statement
+	 | jump_statement
+;
+
+labeled_statement: IDENTIFIER ':' statement
+                 | CASE constant_expression ':' statement
+		 | DEFAULT ':' statement
+;
+
+compound_statement: '{' '}'
+                  | '{' block_item_list '}'
+;
+
+block_item_list: block_item
+               | block_item_list block_item
+;
+
+block_item: declaration
+          | statement
+;
+
+expression_statement: ';'
+                    | expression ';'
+;
+
+selection_statement: IF '(' expression ')' statement
+                   | IF '(' expression ')' statement ELSE statement
+		   | SWITCH '(' expression ')' statement
+;
+
+iteration_statement: WHILE '(' expression ')' statement
+                   | DO statement WHILE '(' expression ')' ';'
+		   | FOR '(' ';' ';' ')' statement
+		   | FOR '(' ';' ';' expression ')' statement
+		   | FOR '(' ';' expression ';' ')' statement
+		   | FOR '(' ';' expression ';' expression ')' statement
+		   | FOR '(' expression ';' ';' ')' statement
+		   | FOR '(' expression ';' ';' expression ')' statement
+		   | FOR '(' expression ';' expression ';' ')' statement
+		   | FOR '(' expression ';' expression ';' expression ')' statement
+		   | FOR '(' declaration ';' ')' statement
+		   | FOR '(' declaration ';' expression ')' statement
+		   | FOR '(' declaration expression ';' ')' statement
+		   | FOR '(' declaration expression ';' expression ')' statement
+;
+
+jump_statement: GOTO IDENTIFIER ';'
+              | CONTINUE ';'
+	      | BREAK ';'
+	      | RETURN ';'
+	      | RETURN expression ';'
+;
+
+/* A.2.4 External definitions */
+translation_unit: external_declaration
+                | translation_unit external_declaration
+;
+
+external_declaration: function_definition
+                    | declaration
+;
+
+function_definition: declaration_specifiers declarator compound_statement
+                   | declaration_specifiers declarator declaration_list compound_statement
+;
+
+declaration_list: declaration
+                | declaration_list declaration
+;
+
+/* A.3 Preprocessing directives */
+preprocessing_file: /* Empty */
+                  | group
+;
+
+group: group_part
+     | group group_part
+;
+
+group_part: if_section
+          | control_line
+	  | text_line
+	  | '#' non_directive
+;
+
+if_section: if_group endif_line
+          | if_group else_group endif_line
+          | if_group elif_groups endif_line
+	  | if_group elif_groups else_group endif_line
+;
+
+if_group: PIF constant_expression NEW_LINE
+        | PIF constant_expression NEW_LINE group
+	| PIFDEF IDENTIFIER NEW_LINE
+	| PIFDEF IDENTIFIER NEW_LINE group
+	| PIFNDEF IDENTIFIER NEW_LINE
+	| PIFNDEF IDENTIFIER NEW_LINE group
+;
+
+elif_groups: elif_group
+           | elif_groups elif_group
+;
+
+elif_group: PELIF constant_expression NEW_LINE
+          | PELIF constant_expression NEW_LINE group
+;
+
+else_group: PELSE NEW_LINE
+          | PELSE NEW_LINE group
+;
+
+endif_line: PENDIF NEW_LINE
+;
+/* 6.10 */
+control_line: '#' INCLUDE pp_tokens NEW_LINE
+            | '#' DEFINE IDENTIFIER replacement_list NEW_LINE
+	    | '#' DEFINE IDENTIFIER LPAREN ')' replacement_list NEW_LINE
+	    | '#' DEFINE IDENTIFIER LPAREN identifier_list ')' replacement_list NEW_LINE
+	    | '#' DEFINE IDENTIFIER LPAREN TRIPLEDOT ')' replacement_list NEW_LINE
+	    | '#' DEFINE IDENTIFIER LPAREN identifier_list ',' TRIPLEDOT ')'
+	                                   replacement_list NEW_LINE
+	    | '#' UNDEF IDENTIFIER NEW_LINE
+	    | '#' LINE pp_tokens NEW_LINE
+	    | '#' ERROR NEW_LINE
+	    | '#' ERROR pp_tokens NEW_LINE
+	    | '#' PRAGMA NEW_LINE
+	    | '#' PRAGMA pp_tokens NEW_LINE
+	    | '#' NEW_LINE
+;
+
+text_line: NEW_LINE
+         | pp_tokens NEW_LINE
+;
+
+non_directive: pp_tokens NEW_LINE
+;
+
+replacement_list: /* Empty */
+                | pp_tokens
+;
+
+pp_tokens: preprocessing_token
+         | pp_tokens preprocessing_token
+;
 
 /* Error Recovery Rulers */
 
@@ -1734,91 +1403,46 @@ expr:             TOK_STRING        { $$ = strdup ( $1 ); }
 
 /* Called by yyparse on error.  */
 void
-yyerror (void *locp, void *scanner, PCONTEXT pcontext, char const *msg)
+yyerror(void *locp, void *scanner, PCONTEXT pcontext, char const *msg)
 {
-  fprintf (stderr, "Line %d:%s\n", ((YYLTYPE*)locp)->first_line, msg);
-  //fprintf (stderr, "Error:%s\n",  msg);
+  fprintf(stderr, "Line %d:%s\n",((YYLTYPE*)locp)->first_line, msg);
 }
 
 int
-main (int argc, char * argv[])
+main(int argc, char * argv[])
 {
   CONTEXT context;
   yyscan_t scanner;
   FILE * infile;
-  int i,j;
 
   ++argv, --argc;  /* skip over program name */
 
-  if ( ( argc > 0 ) && ( strcmp( argv [ 0 ], "-d" ) == 0 ) ) {
+  if ((argc > 0) &&(strcmp(argv [ 0 ], "-d") == 0)) {
     yydebug = 1;
     ++argv, --argc;  /* skip over this option */
   }
   else
     yydebug = 0;
 
-  if ( argc == 0 ) {
-    fprintf ( stderr, "Error: no specify filename found\n" );
+  if (argc == 0) {
+    fprintf(stderr, "Error: no specify filename found\n");
     return -1;
   }
-  infile = fopen( argv[0], "r" );
-  if ( infile == NULL ) {
-    fprintf ( stderr, "Error: can't open file '%s'\n", argv [ 0 ] );
+  infile = fopen(argv[0], "r");
+  if (infile == NULL) {
+    fprintf(stderr, "Error: can't open file '%s'\n", argv [ 0 ]);
     return -2;
   }
 
   /* 初始化上下文 */
-  memset( &context, 0, sizeof( CONTEXT ) );
-
-  /* 初始化算法名称 */
-  char * filename = strdup ( ( char * )basename ( argv [ 0 ] ) );
-  if ( strchr ( filename, '.' ) )
-    context.algorithm = ( char * )strtok ( filename, "." );
-  else
-    context.algorithm = filename;
-
-
-  /* 重定向输出 */
-  char * ofilename = malloc ( PATH_MAX );
-  if ( snprintf ( ofilename, PATH_MAX, "%s.py", context.algorithm ) < 0 ) {
-    printf ( "Error: memroy fault when get outfile name\n" );
-    exit ( -1 );
-  }
-
-  FILE * outfile = fopen(ofilename, "w");
-  if ( ! outfile ) {
-    printf ( "Error: can't open output file '%s'\n", ofilename );
-    return -3;
-  }
-  int fd = fileno ( outfile );
-  if ( fd == -1 ) {
-    fclose ( outfile );
-    printf ( "Error: can't get file id of '%s'\n", ofilename );
-    return -4;
-  }
-  int s_fd = dup( STDOUT_FILENO );
-  if ( s_fd < 0 ) {
-    close( fd );
-    printf ( "Error: duplicate the stdout\n" );
-    return -5;
-  }
-  int n_fd = dup2( fd, s_fd ); /* STDOUT_FILENO ); */
-  if ( n_fd < 0) {
-    close( fd );
-    printf ( "Error: redirect the stdout\n" );
-    return -6;
-  }
+  memset(&context, 0, sizeof(CONTEXT));
 
   /* 解析文件 */
-  print_file_header ( &context );
-  yylex_init ( &scanner );
-  yyset_in( infile, scanner );
-  yyparse ( scanner, &context );
-  yylex_destroy ( scanner );
+  yylex_init_extra((YY_EXTRA_TYPE)&context, &scanner);
+  yyset_in(infile, scanner);
+  yyparse(scanner, &context);
+  yylex_destroy(scanner);
 
-  fclose ( infile );
-  fclose ( outfile );
-  free ( filename );
-  free ( ofilename );
+  fclose(infile);
   return 0;
 }
