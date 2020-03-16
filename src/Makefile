@@ -1,18 +1,18 @@
-all: c
+BISON = /usr/local/opt/bison/bin/bison
+FLEX = /usr/local/opt/flex/bin/flex
+GCC = gcc
 
-clean: clean_c
+cparser: lex.yy.c c.tab.c ptypes.h
+	$(GCC) -I. -o $@ lex.yy.c c.tab.c
 
-clex: c.lex.yy.c
-	gcc -DFLEX -o $@ c.lex.yy.c
+clex: lex.yy.c
+	$(GCC) -I. -DDEBUG_FLEX -o $@ lex.yy.c
 
-cparse: base_c.tab.c base_c.tab.h c.lex.yy.c
-	gcc -I. -o $@ base_c.tab.c c.lex.yy.c
+lex.yy.c: c.l c.tab.h
+	$(FLEX) c.l
 
-c.lex.yy.c: c.lex base_c.tab.h
-	flex -o c.lex.yy.c c.lex
+c.tab.c c.tab.h: c.y ptypes.h
+	$(BISON) -d -v c.y
 
-base_c.tab.c base_c.tab.h: base_c.y
-	bison -d -v -o base_c.tab.c base_c.y
-
-clean_c:
-	rm pparse.exe base_c.tab.c base_c.tab.h c.lex.yy.c
+clean:
+	rm cparse c.tab.c c.tab.h lex.yy.c

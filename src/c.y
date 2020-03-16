@@ -750,15 +750,19 @@ shift/reduce 冲突
    这个 else 到底是和第一个还是第二个 if 匹配，默认是第二个
  */
 
-%{
+%code top {
   #include <stdio.h>
   #include <limits.h>
+}
 
+%code requires {
+  #include "ptypes.h"
   #define YYSTYPE char *
+}
+
+%{
   typedef void * yyscan_t;
   typedef void * YY_EXTRA_TYPE;
-  typedef struct { int flag; } CONTEXT;
-  typedef CONTEXT * PCONTEXT;
   extern int yylex_init(yyscan_t *);
   extern int yylex_init_extra(YY_EXTRA_TYPE, yyscan_t *);
   extern int yylex_destroy(yyscan_t);

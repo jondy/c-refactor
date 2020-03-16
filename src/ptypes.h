@@ -1,11 +1,9 @@
+#if !defined(PTYPES_H)
 
-#if !defined(PARSE_H)
+#define PTYPES_H
 
-#define PARSE_H
-
-#if defined(__cplusplus)
-extern "C" {
-#endif
+  typedef struct { int flag; } CONTEXT;
+  typedef CONTEXT * PCONTEXT;
 
   #define MAX_PARA_NUMBER 16
   #define MAX_FUNC_NUMBER 16
@@ -68,8 +66,4 @@ extern "C" {
   extern int INDENT_UNIT;
   extern int OUTPUT_WIDTH;
 
-#if defined(__cplusplus)
-}
-#endif
-
-#endif	/* PARSE_H */
+#endif	/* PTYPES_H */
