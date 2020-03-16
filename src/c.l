@@ -220,7 +220,7 @@ MPUNCTUATOR	   ("+="|"-="|"&="|"^="|"|="|"##"|"<:"|":>"|"<%"|"%>"|"%:"|"->"|"++"
 			    else{
 			      /* 如果当前进入 declaration ，那么返回 TYPE_NAME */
 			      PCONTEXT pcontext = (PCONTEXT)yyget_extra(yyscanner);
-			      if (pcontext -> flag)
+			      if (pcontext -> findex)
 				return TYPE_NAME;
 			      else
 				return IDENTIFIER;

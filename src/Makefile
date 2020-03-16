@@ -15,4 +15,4 @@ c.tab.c c.tab.h: c.y ptypes.h
 	$(BISON) -d -v c.y
 
 clean:
-	rm cparse c.tab.c c.tab.h lex.yy.c
+	rm -rf cparser clex c.output c.tab.c c.tab.h lex.yy.c

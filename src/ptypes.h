@@ -2,9 +2,6 @@
 
 #define PTYPES_H
 
-  typedef struct { int flag; } CONTEXT;
-  typedef CONTEXT * PCONTEXT;
-
   #define MAX_PARA_NUMBER 16
   #define MAX_FUNC_NUMBER 16
   #define MAX_VARS_NUMBER 16
@@ -45,7 +42,9 @@
     char stmt [ MAX_STMT_SIZE ];
     char * filename;
   } CONTEXT;
-  typedef CONTEXT * PCONTEXT;
+  typedef CONTEXT  *PCONTEXT;
+  typedef CONTEXT *YY_EXTRA_TYPE;
+
   /*
   void print_file_header ( PCONTEXT );
   void print_file_footer ( PCONTEXT );

@@ -752,23 +752,26 @@ shift/reduce 冲突
 
 %code top {
   #include <stdio.h>
+  #include <strings.h>
   #include <limits.h>
 }
 
 %code requires {
   #include "ptypes.h"
-  #define YYSTYPE char *
+  typedef void * yyscan_t;
+
+  #define YYSTYPE YYSTYPE
+  typedef char * YYSTYPE;
 }
 
-%{
-  typedef void * yyscan_t;
-  typedef void * YY_EXTRA_TYPE;
-  extern int yylex_init(yyscan_t *);
-  extern int yylex_init_extra(YY_EXTRA_TYPE, yyscan_t *);
-  extern int yylex_destroy(yyscan_t);
-  extern void yyset_in(FILE *, yyscan_t);
-  void yyerror(void *, void *, PCONTEXT, char const *);
-%}
+%code {
+  extern int yylex_init(yyscan_t scanner);
+  extern int yylex_init_extra(YY_EXTRA_TYPE pcontext, yyscan_t scanner);
+  extern int yylex(YYSTYPE * yylval_param, YYLTYPE * yylloc_param , yyscan_t yyscanner);
+  extern int yylex_destroy(yyscan_t scanner);
+  extern void yyset_in(FILE * file, yyscan_t scanner);
+  void yyerror(void *locp, void *scanner, PCONTEXT pcontext, char const *msg);
+}
 
 /* %glr-parser */
 %define parse.trace
@@ -777,9 +780,8 @@ shift/reduce 冲突
 %locations
 %token-table
 
-%lex-param   {void *scanner}
-%lex-param   {PCONTEXT pcontext}
-%parse-param {void *scanner}
+%lex-param   {yyscan_t scanner}
+%parse-param {yyscan_t scanner}
 %parse-param {PCONTEXT pcontext}
 
 %token AUTO "auto"
