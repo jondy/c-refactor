@@ -8,32 +8,25 @@
   #define MAX_EXPR_SIZE 1024
   #define MAX_STMT_SIZE 1024
 
-  typedef struct
-  {
+  typedef struct {
     char * name;
     char * type;
     int varflag;
-  } PARA;
-  typedef PARA * PPARA;
+  } PARA, * PPARA;
 
-  typedef struct
-  {
+  typedef struct {
     char * name;
     char * rettype;
     PARA paras [ MAX_PARA_NUMBER ];
-  } FUNC;
-  typedef FUNC * PFUNC;
+  } FUNC, * PFUNC;
 
-  typedef struct
-  {
+  typedef struct {
     char * name;
     char * type;
     char * value;
-  } VARS;
-  typedef VARS * PVAR;
+  } VARS, * PVAR;
 
-  typedef struct
-  {
+  typedef struct {
     FUNC funcs [ MAX_FUNC_NUMBER ];
     int findex;		        /* 当前函数列表的指针 */
     int indent;			/* 缩进宽度 */
