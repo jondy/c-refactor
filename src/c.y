@@ -364,8 +364,8 @@ constant_expression: conditional_expression
 ;
 
 /* A.2.2 Declarations */
-declaration: declaration_specifiers ';'
-           | declaration_specifiers init_declarator_list ';'
+declaration: declaration_specifiers ';'                      { pcontext->flags &= ~TYPEDEF_FLAG; }
+           | declaration_specifiers init_declarator_list ';' { pcontext->flags &= ~TYPEDEF_FLAG; }
 ;
 
 declaration_specifiers: storage_class_specifier
@@ -382,11 +382,12 @@ init_declarator_list: init_declarator
                     | init_declarator_list ',' init_declarator
 ;
 
-init_declarator: declarator
-               | declarator '=' initializer
+init_declarator: declarator    { if (pcontext->flags & TYPEDEF_FLAG) { PUSH_TYPEDEF($1) } }
+               | declarator '=' initializer {
+                                 if (pcontext->flags & TYPEDEF_FLAG) { PUSH_TYPEDEF($1) } }
 ;
 
-storage_class_specifier: TYPEDEF
+storage_class_specifier: TYPEDEF                    { pcontext->flags |= TYPEDEF_FLAG; }
                        | EXTERN
 		       | STATIC
 		       | AUTO
@@ -412,6 +413,7 @@ type_specifier: VOID
 
 struct_or_union_specifier: struct_or_union '{' struct_declaration_list '}'
                          | struct_or_union IDENTIFIER '{' struct_declaration_list '}'
+                                                       { PUSH_TYPEDEF($2) }
 			 | struct_or_union IDENTIFIER
 ;
 
@@ -442,9 +444,9 @@ struct_declarator: declarator
 ;
 
 enum_specifier: ENUM '{' enumerator_list '}'
-              | ENUM IDENTIFIER '{' enumerator_list '}'
+              | ENUM IDENTIFIER '{' enumerator_list '}'         { PUSH_TYPEDEF($2) }
 	      | ENUM '{' enumerator_list ',' '}'
-	      | ENUM IDENTIFIER '{' enumerator_list ',' '}'
+	      | ENUM IDENTIFIER '{' enumerator_list ',' '}'     { PUSH_TYPEDEF($2) }
 	      | ENUM IDENTIFIER
 ;
 

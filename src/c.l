@@ -7,11 +7,6 @@
     yylloc -> last_line = yylloc -> first_line;         \
     yylloc -> first_column = 1;                         \
     yylloc -> last_column = 1;
-
-  #define MAX_INCLUDE_DEPTH 128
-  YYLTYPE include_stack[MAX_INCLUDE_DEPTH];
-  int include_stack_ptr = 0;
-
 }
 
 %option 8bit reentrant stack noyywrap
@@ -27,7 +22,7 @@ OCTAL_CONSTANT       0[0-7]*
 HEXADECIMAL_CONSTANT 0[xX][0-9A-Fa-f]+
 
 FLOAT_SUFFIX                  [flFL]
-DECIMAL_FLOATING_CONSTANT     (([0-9]*[.][0-9]+)|([0-9]*[.]))([eE][-+]?[0-9]+)?
+DECIMAL_FLOATING_CONSTANT     (([0-9]*[.][0-9]+)|([0-9]+[.]))([eE][-+]?[0-9]+)?
 HEXADECIMAL_FLOATING_CONSTANT (([0-9A-Fa-f]*[.][0-9A-Fa-f]+)|([0-9A-Fa-f]*[.]))[pP][-+][0-9]+
 
 SIMPLE_ESCAPE               (\\[\'\"?\\abfnrtv])
@@ -51,6 +46,7 @@ MPUNCTUATOR	   ("+="|"-="|"&="|"^="|"|="|"##"|"<:"|":>"|"<%"|"%>"|"%:"|"->"|"++"
 %%
 
 %{
+  PCONTEXT pcontext = (PCONTEXT)yyget_extra(yyscanner);
   yy_flex_debug = 0;
 %}
 
@@ -76,18 +72,7 @@ MPUNCTUATOR	   ("+="|"-="|"&="|"^="|"|="|"##"|"<:"|":>"|"<%"|"%>"|"%:"|"->"|"++"
 
 <incl>{HEADER_NAME}       { *yylval = (YYSTYPE)strdup(yytext);
                             yy_pop_state(yyscanner);
-                            FILE *file = fopen( yytext[0] == '"' ? "foo.h" : yytext, "r" );
-  if ( !file )
-    fprintf(stderr, "Open '%s' failed: %s\n", yytext, strerror(errno));
-  else {
-    memcpy(&include_stack[include_stack_ptr], yylloc, sizeof(YYLTYPE));
-    yylloc->filename = "foo.h";
-    yylloc->first_line = 1;
-    yylloc->last_line = 1;
-    yylloc->first_column = 1;
-    yylloc->last_column = 1;
-    yypush_buffer_state(yy_create_buffer(file, YY_BUF_SIZE, yyscanner), yyscanner);
-  }
+                            PUSH_INCLUDE_STACK;
                             return HEADER_NAME;
                           }
 
@@ -214,12 +199,12 @@ MPUNCTUATOR	   ("+="|"-="|"&="|"^="|"|="|"##"|"<:"|":>"|"<%"|"%>"|"%:"|"->"|"++"
 			    else {
 			      /* 如果在已知的类型定义中 ，那么返回 TYPE_NAME */
                               /* 如果在已知的枚举类型中 ，那么返回 ENUMERATION_CONSTANT */
-                              /* ? yyextra == yyget_extra(yyscanner) */
-			      PCONTEXT pcontext = (PCONTEXT)yyget_extra(yyscanner);
-			      if (pcontext -> findex)
-				return TYPE_NAME;
-			      else
-				return IDENTIFIER;
+                              int i;
+                              for (i=0; i<pcontext->typedef_stack.current; i++) {
+                                if (strcmp(pcontext->typedef_stack.data[i].name, yytext) == 0)
+                                  return TYPE_NAME;
+                              }
+                              return IDENTIFIER;
 			    }
                           }
 
@@ -303,29 +288,15 @@ MPUNCTUATOR	   ("+="|"-="|"&="|"^="|"|="|"##"|"<:"|":>"|"<%"|"%>"|"%:"|"->"|"++"
 <*>[[:blank:]]+           { /* do nothing */ }
 
 <*><<EOF>>                { yypop_buffer_state(yyscanner);
-                            if ( !YY_CURRENT_BUFFER ) {
-			       yyterminate();
-			       }
-                            else {
-                              memcpy(yylloc, &include_stack[include_stack_ptr], sizeof(YYLTYPE));
-                            }
+                            if ( YY_CURRENT_BUFFER )
+			      POP_INCLUDE_STACK;
+                            else
+                              yyterminate();
 			  }
 
 <*>.                      { /* ignore all the others */ }
 
 %%
-
-int
-yylex_include_file(const char *name, yyscan_t yyscanner)
-{
-  PCONTEXT pcontext = (PCONTEXT)yyget_extra(yyscanner);
-  FILE *file = fopen( name[0] == '"' ? "foo.h" : name, "r" );
-  if ( !file )
-    fprintf(stderr, "Open '%s' failed: %s\n", name, strerror(errno));
-  else
-    yypush_buffer_state(yy_create_buffer(file, YY_BUF_SIZE, yyscanner), yyscanner);
-  return 0;
-}
 
 #ifdef DEBUG_FLEX
 int main(int argc, char * argv[])

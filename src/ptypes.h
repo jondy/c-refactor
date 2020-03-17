@@ -2,6 +2,10 @@
 
 #define PTYPES_H
 
+#if !defined(PATH_MAX)
+  #define PATH_MAX 4096
+#endif
+
   typedef void * yyscan_t;
 
   #define YYSTYPE YYSTYPE
@@ -17,11 +21,46 @@
     char *filename;
   } YYLTYPE;
 
-  #define MAX_PARA_NUMBER 16
-  #define MAX_FUNC_NUMBER 16
-  #define MAX_VARS_NUMBER 16
-  #define MAX_EXPR_SIZE 1024
-  #define MAX_STMT_SIZE 1024
+  #define MAX_STACK_SIZE 32
+  #define MAX_INCLUDE_PATH 32
+
+  typedef struct {
+    char * standard[MAX_INCLUDE_PATH];
+    char * extra[MAX_INCLUDE_PATH];
+  } include_path_t, *include_path_p;
+
+  typedef struct {
+    int current;
+    int top;
+    struct include_stack_t *prev;
+    YYLTYPE data[MAX_STACK_SIZE];
+  } include_stack_t, * include_stack_p;
+
+  typedef struct {
+    char * name;
+    char * value;
+  } macro_t, * macro_p ;
+
+  typedef struct {
+    int current;
+    int top;
+    struct macro_stack_t * prev;
+    macro_t data[MAX_STACK_SIZE];
+  } macro_stack_t, * macro_stack_p;
+
+  typedef void *(*f_getter)(const char *text);
+  typedef struct {
+    char * name;
+    int pointer;
+    char * clsname;
+  } typedef_t, * typedef_p ;
+
+  typedef struct {
+    int current;
+    int top;
+    struct typedef_stack_t * prev;
+    typedef_t data[MAX_STACK_SIZE];
+  } typedef_stack_t, * typedef_stack_p;
 
   typedef struct {
     char * name;
@@ -32,7 +71,7 @@
   typedef struct {
     char * name;
     char * rettype;
-    PARA paras [ MAX_PARA_NUMBER ];
+    PARA paras [ MAX_STACK_SIZE ];
   } FUNC, * PFUNC;
 
   typedef struct {
@@ -41,34 +80,45 @@
     char * value;
   } VARS, * PVAR;
 
+  #define TYPEDEF_FLAG 0x1
+
   typedef struct {
-    FUNC funcs [ MAX_FUNC_NUMBER ];
-    int findex;		        /* 当前函数列表的指针 */
-    int indent;			/* 缩进宽度 */
-    char expr [ MAX_EXPR_SIZE ];
-    VARS vars [ MAX_VARS_NUMBER ];
-    char stmt [ MAX_STMT_SIZE ];
+    include_path_t include_path;
+    typedef_stack_t typedef_stack;
+    include_stack_t include_stack;
+    macro_stack_t macro_stack;
+    int flags;
     char * filename;
   } CONTEXT, *PCONTEXT, *YY_EXTRA_TYPE;
 
-  /*
-  void print_file_header ( PCONTEXT );
-  void print_file_footer ( PCONTEXT );
-  void print_class_begin ( PCONTEXT );
-  void print_class_end ( PCONTEXT );
-  void print_func_begin ( int, PCONTEXT );
-  void print_func_end ( int, PCONTEXT );
-  void print_indent ( int );
+#define PUSH_TYPEDEF(value)                                             \
+  pcontext->typedef_stack.data[pcontext->typedef_stack.current].name = strdup(value); \
+  pcontext->typedef_stack.current ++;
 
-  void print_control_stmt ( int, PCONTEXT );
-  void print_call_stmt ( int, PCONTEXT );
-  void print_stmt ( int, PCONTEXT );
+#define PUSH_INCLUDE_STACK do {                                         \
+    char buf[PATH_MAX];                                                 \
+    memcpy(buf, yytext + 1, yyleng - 2);                                 \
+    buf[yyleng - 2] = 0;                                                 \
+    FILE *file = fopen(buf, "r");                                       \
+    if ( !file )                                                        \
+      fprintf(stderr, "Open '%s' failed: %s\n", buf, strerror(errno));  \
+    else {                                                              \
+      memcpy(&(pcontext->include_stack.data[pcontext->include_stack.current]), yylloc, sizeof(YYLTYPE)); \
+      pcontext->include_stack.current ++;                               \
+      yylloc->filename = strdup(buf);                                   \
+      yylloc->first_line = 1;                                           \
+      yylloc->last_line = 1;                                            \
+      yylloc->first_column = 1;                                         \
+      yylloc->last_column = 1;                                          \
+      yypush_buffer_state(yy_create_buffer(file, YY_BUF_SIZE, yyscanner), yyscanner); \
+    }                                                                   \
+  } while (0)
 
-  char * increase_indent( char *, const int, const char *, int );
-  char * merge_expr( char * );
-  */
-  /* 缩进单位，四个空格 */
-  extern int INDENT_UNIT;
-  extern int OUTPUT_WIDTH;
+#define POP_INCLUDE_STACK do {                                          \
+    pcontext->include_stack.current --;                                 \
+    memcpy(yylloc, &(pcontext->include_stack.data[pcontext->include_stack.current]), sizeof(YYLTYPE)); \
+  } while (0)
+
+
 
 #endif	/* PTYPES_H */
