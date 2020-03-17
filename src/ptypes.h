@@ -2,6 +2,21 @@
 
 #define PTYPES_H
 
+  typedef void * yyscan_t;
+
+  #define YYSTYPE YYSTYPE
+  typedef char * YYSTYPE;
+
+  #define YYLTYPE YYLTYPE
+  typedef struct YYLTYPE
+  {
+    int first_line;
+    int first_column;
+    int last_line;
+    int last_column;
+    char *filename;
+  } YYLTYPE;
+
   #define MAX_PARA_NUMBER 16
   #define MAX_FUNC_NUMBER 16
   #define MAX_VARS_NUMBER 16
