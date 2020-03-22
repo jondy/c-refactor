@@ -382,9 +382,8 @@ init_declarator_list: init_declarator
                     | init_declarator_list ',' init_declarator
 ;
 
-init_declarator: declarator    { if (pcontext->flags & TYPEDEF_FLAG) { PUSH_TYPEDEF($1) } }
-               | declarator '=' initializer {
-                                 if (pcontext->flags & TYPEDEF_FLAG) { PUSH_TYPEDEF($1) } }
+init_declarator: declarator
+               | declarator '=' initializer
 ;
 
 storage_class_specifier: TYPEDEF                    { pcontext->flags |= TYPEDEF_FLAG; }
@@ -398,7 +397,7 @@ storage_class_specifier: TYPEDEF                    { pcontext->flags |= TYPEDEF
 type_specifier: VOID
               | CHAR
 	      | SHORT
-	      | INT
+              | INT
 	      | LONG
 	      | FLOAT
 	      | DOUBLE
@@ -466,8 +465,8 @@ type_qualifier: CONST
 function_specifier: INLINE
 ;
 
-declarator: direct_declarator
-          | pointer direct_declarator
+declarator: direct_declarator { if (pcontext->flags & TYPEDEF_FLAG) { PUSH_TYPEDEF($1) } }
+          | pointer direct_declarator { if (pcontext->flags & TYPEDEF_FLAG) { PUSH_TYPEDEF($2) } }
 ;
 
 /* 6.7.5 */
@@ -487,10 +486,10 @@ direct_declarator: IDENTIFIER
  		 | direct_declarator '(' identifier_list ')'
 ;
 
-pointer: '*'
-       | '*' type_qualifier_list
-       | '*' pointer
-       | '*' type_qualifier_list pointer
+pointer: '*'                              { INC_TYPEDEF_POINTER; }
+       | '*' type_qualifier_list          { INC_TYPEDEF_POINTER; }
+       | '*' pointer                      { INC_TYPEDEF_POINTER; }
+       | '*' type_qualifier_list pointer  { INC_TYPEDEF_POINTER; }
 ;
 
 type_qualifier_list: type_qualifier
@@ -775,6 +774,8 @@ main(int argc, char * argv[])
   yyset_in(infile, scanner);
   yyparse(scanner, &context);
   yylex_destroy(scanner);
+
+  DUMP_TYPEDEF_STACK(context.typedef_stack);
 
   fclose(infile);
   return 0;
