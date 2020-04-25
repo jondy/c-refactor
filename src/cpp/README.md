@@ -90,3 +90,14 @@ c 语法相关
     diagnostic_context *global_dc = &global_diagnostic_context; (diagnostic.c)
     type_hash_table; (tree.c)
     line_table; (input.c)
+
+主要使用到的参考函数
+
+    1. gcc/c-familay/c-opts.c:1157!c_common_parse_file()
+                original_dump_file = dump_begin (TDI_original, &original_dump_flags);
+
+    2. gcc/toplevel.c:450!compile_file()
+
+    3. gcc/toplevel.c:2126!do_compile()
+
+或者参考这里 `gcc/gentype.c!main()`
